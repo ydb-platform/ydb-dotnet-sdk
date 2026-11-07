@@ -185,7 +185,7 @@ public class YdbCommandTests : TestBase
     }
 
     [Fact]
-    public async Task CloseConnection_WhenReadIsCancelled_ClosesConnectionAndReportsTransportCancellation()
+    public async Task CloseConnection_WhenReadIsCancelled_ClosesConnectionAndReportsOperationCanceled()
     {
         await using var connection = await CreateOpenConnectionAsync();
         await using var reader = await new YdbCommand("SELECT 1; SELECT 2;", connection)
@@ -193,8 +193,9 @@ public class YdbCommandTests : TestBase
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
-        var exception = await Assert.ThrowsAsync<YdbException>(() => reader.NextResultAsync(cancellation.Token));
-        Assert.Equal(StatusCode.ClientTransportCancelled, exception.Code);
+        var exception = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => reader.NextResultAsync(cancellation.Token));
+        Assert.Equal(cancellation.Token, exception.CancellationToken);
 
         Assert.True(reader.IsClosed);
         Assert.Equal(ConnectionState.Closed, connection.State);
