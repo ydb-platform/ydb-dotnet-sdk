@@ -194,7 +194,7 @@ public sealed class YdbConnectionTests : TestBase
     }
 
     [Fact]
-    public async Task YdbDataReader_WhenCancelTokenIsCanceled_ThrowYdbException()
+    public async Task YdbDataReader_WhenCancelTokenIsCanceled_ThrowOperationCanceledException()
     {
         await using var connection = await CreateOpenConnectionAsync();
         var command = new YdbCommand(connection) { CommandText = "SELECT 1; SELECT 1; SELECT 1;" };
@@ -206,8 +206,9 @@ public sealed class YdbConnectionTests : TestBase
         Assert.False(ydbDataReader.IsClosed);
         Assert.Equal(1, ydbDataReader.GetValue(0));
         Assert.Equal(ConnectionState.Open, connection.State);
-        Assert.Equal(StatusCode.ClientTransportCancelled,
-            (await Assert.ThrowsAsync<YdbException>(async () => await ydbDataReader.NextResultAsync(cts.Token))).Code);
+        var cancellationException = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => ydbDataReader.NextResultAsync(cts.Token));
+        Assert.Equal(cts.Token, cancellationException.CancellationToken);
         Assert.True(ydbDataReader.IsClosed);
         Assert.Equal(ConnectionState.Broken, connection.State);
         // CLOSE OLD CONNECTION! (return to pool)
@@ -224,8 +225,9 @@ public sealed class YdbConnectionTests : TestBase
         Assert.Equal(1, ydbDataReader.GetValue(0));
         Assert.False(ydbDataReader.IsClosed);
 
-        Assert.Equal(StatusCode.ClientTransportCancelled,
-            (await Assert.ThrowsAsync<YdbException>(async () => await ydbDataReader.NextResultAsync(cts.Token))).Code);
+        cancellationException = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => ydbDataReader.NextResultAsync(cts.Token));
+        Assert.Equal(cts.Token, cancellationException.CancellationToken);
         Assert.True(ydbDataReader.IsClosed);
         Assert.Equal(ConnectionState.Broken, connection.State);
     }
