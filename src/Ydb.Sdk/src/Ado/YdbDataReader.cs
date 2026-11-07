@@ -1035,6 +1035,11 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
         }
         catch (YdbException e)
         {
+            var cancellationException =
+                e.Code == StatusCode.ClientTransportCancelled && cancellationToken.IsCancellationRequested
+                    ? new OperationCanceledException(e.Message, e, cancellationToken)
+                    : null;
+
             ReaderState = State.Close;
 
             if (_ydbTransaction != null)
@@ -1046,10 +1051,15 @@ public sealed class YdbDataReader : DbDataReader, IAsyncEnumerable<YdbDataRecord
 
             _metricsReporter.ReportOperationFailed(e.Code, OperationName);
             _connection.OnNotSuccessStatusCode(e.Code);
-            _dbActivity?.SetException(e);
+            _dbActivity?.SetException((Exception?)cancellationException ?? e);
             _dbActivity?.Dispose();
 
             await CloseConnectionAfterErrorAsync().ConfigureAwait(false);
+
+            if (cancellationException is not null)
+            {
+                throw cancellationException;
+            }
 
             throw;
         }
