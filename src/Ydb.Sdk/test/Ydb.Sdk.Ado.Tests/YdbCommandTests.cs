@@ -193,8 +193,8 @@ public class YdbCommandTests : TestBase
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
-        var exception = await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => reader.NextResultAsync(cancellation.Token));
+        var exception =
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => reader.NextResultAsync(cancellation.Token));
         Assert.Equal(cancellation.Token, exception.CancellationToken);
 
         Assert.True(reader.IsClosed);

@@ -206,8 +206,8 @@ public sealed class YdbConnectionTests : TestBase
         Assert.False(ydbDataReader.IsClosed);
         Assert.Equal(1, ydbDataReader.GetValue(0));
         Assert.Equal(ConnectionState.Open, connection.State);
-        var cancellationException = await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => ydbDataReader.NextResultAsync(cts.Token));
+        var cancellationException =
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ydbDataReader.NextResultAsync(cts.Token));
         Assert.Equal(cts.Token, cancellationException.CancellationToken);
         Assert.True(ydbDataReader.IsClosed);
         Assert.Equal(ConnectionState.Broken, connection.State);
@@ -225,8 +225,8 @@ public sealed class YdbConnectionTests : TestBase
         Assert.Equal(1, ydbDataReader.GetValue(0));
         Assert.False(ydbDataReader.IsClosed);
 
-        cancellationException = await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => ydbDataReader.NextResultAsync(cts.Token));
+        cancellationException =
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ydbDataReader.NextResultAsync(cts.Token));
         Assert.Equal(cts.Token, cancellationException.CancellationToken);
         Assert.True(ydbDataReader.IsClosed);
         Assert.Equal(ConnectionState.Broken, connection.State);
