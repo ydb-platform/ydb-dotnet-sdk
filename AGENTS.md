@@ -22,7 +22,8 @@ tested, and released from this single repository.
 /
 ├── src/
 │   ├── Ydb.Sdk/                    # Core SDK
-│   │   ├── src/Ydb.Sdk/            # Library source (net8.0)
+│   │   ├── CHANGELOG.md            # Release notes (see "Conventions")
+│   │   ├── src/                    # Library source (net8.0) — Ydb.Sdk.csproj
 │   │   └── test/
 │   │       ├── Ydb.Sdk.Ado.Tests/              # ADO.NET integration tests
 │   │       ├── Ydb.Sdk.Ado.Specification.Tests/ # ADO.NET spec compliance
@@ -32,11 +33,13 @@ tested, and released from this single repository.
 │   │       └── Ydb.Sdk.Topic.Tests/            # Topic client tests
 │   │
 │   ├── EFCore.Ydb/                 # Entity Framework Core provider
-│   │   ├── src/EntityFrameworkCore.Ydb/        # Library source (net8.0, net10.0)
-│   │   └── test/EntityFrameworkCore.Ydb.FunctionalTests/
+│   │   ├── CHANGELOG.md
+│   │   ├── src/                    # Library source (net8.0 → EF 9, net10.0 → EF 10)
+│   │   └── test/EntityFrameworkCore.Ydb.FunctionalTests/  # net9.0;net10.0
 │   │
 │   ├── Ydb.Sdk.OpenTelemetry/      # OpenTelemetry package
-│   │   └── src/Ydb.Sdk.OpenTelemetry/
+│   │   ├── CHANGELOG.md
+│   │   └── src/                    # AddYdb / AddYdbAdo / AddYdbTopic extensions
 │   │
 │   └── YdbSdk.sln                  # Main solution (src + test projects only)
 │
@@ -46,6 +49,8 @@ tested, and released from this single repository.
 │   ├── Ydb.Sdk.AdoNet.Dapper.QuickStart/
 │   ├── Ydb.Sdk.AdoNet.Yandex.Cloud/
 │   ├── Ydb.Sdk.AdoNet.Yandex.Cloud.Serverless.Container/
+│   ├── Ydb.Sdk.AdoNet.WebProxy/    # Connecting through an HTTP proxy (squid)
+│   ├── Ydb.Sdk.OpenTelemetry/      # OTel usage for AdoNet/ and Topics/
 │   ├── Ydb.Sdk.AdoNet.OpenTelemetry/  # Full OTel E2E playground (Docker Compose)
 │   │   ├── Trace/                  # Tracing example app
 │   │   ├── Metrics/                # Metrics load-tank example app
@@ -56,21 +61,24 @@ tested, and released from this single repository.
 │   ├── EntityFrameworkCore.Ydb.Yandex.Cloud/
 │   └── Linq2db.QuickStart/
 │
-└── slo/                            # Service Level Objectives testing
-    └── src/
+└── slo/                            # Service Level Objectives testing (see slo/README.md)
+    └── src/                        # src.sln
         ├── AdoNet/                 # ADO.NET SLO app (has Dockerfile)
-        ├── TopicService/           # Topic SLO app
+        ├── Dapper/
+        ├── EF/
         ├── Linq2db/
-        └── Internal/               # Shared SLO utilities
+        ├── TopicService/           # Topic SLO app
+        └── Internal/               # Shared SLO utilities (CLI, OTLP metrics, workload harness)
 ```
 
 > **Important:** `examples/` and `slo/` are intentionally **excluded from `YdbSdk.sln`**.
-> They have their own solution files. This keeps the main solution clean and prevents
-> code formatters/linters from touching example code when run against `YdbSdk.sln`.
+> They have their own solution files (`examples/YdbExamples.sln`, `slo/src/src.sln`).
+> CI lints/formats each of the three solutions separately, so a change in `examples/` or
+> `slo/` must be formatted against *its own* solution.
 
 ---
 
-## Source Code Structure (`src/Ydb.Sdk/src/Ydb.Sdk/`)
+## Source Code Structure (`src/Ydb.Sdk/src/`)
 
 ### ADO.NET Provider (`Ado/`)
 
@@ -201,8 +209,9 @@ Pub/Sub client for YDB Topics (similar to Kafka). Key classes: `TopicClient`, `T
    `Ydb.Sdk`; Topic metrics use `Ydb.Sdk.Topic`. `MeterProviderBuilder.AddYdb()` subscribes to both meters;
    `AddYdbAdo()` and `AddYdbTopic()` allow selective metric subscription.
 
-2. **Example projects are not in `YdbSdk.sln`** — this prevents the CI auto-formatter
-   (`dotnet format`) from touching example files and causing spurious diffs.
+2. **Example and SLO projects are not in `YdbSdk.sln`** — each has its own solution and is
+   formatted/inspected by CI independently. Examples and SLO apps reference the SDK via
+   `ProjectReference`, so they always build against the current source.
 
 3. **`PoolingSessionSource` uses a fixed-size `T?[]` array** as the authoritative session
    registry (not the `ConcurrentStack`), because `ConcurrentStack` can contain stale references
@@ -219,38 +228,90 @@ Pub/Sub client for YDB Topics (similar to Kafka). Key classes: `TopicClient`, `T
 
 ## Build and Test
 
+Requires .NET SDK 10 (EF Core provider targets `net10.0`; CI lint uses 10.0.x).
+
 ```bash
 # Build the main solution
 dotnet build src/YdbSdk.sln
 
-# Run all tests (requires a running YDB instance)
-dotnet test src/YdbSdk.sln
+# Start a local YDB (integration tests need it; same flags as CI)
+docker run -d --rm --name ydb-local -h localhost \
+  -p 2135:2135 -p 2136:2136 -p 8765:8765 \
+  -e YDB_LOCAL_SURVIVE_RESTART=true \
+  -e YDB_FEATURE_FLAGS=enable_parameterized_decimal,enable_table_datetime64 \
+  ydbplatform/local-ydb:latest
+docker cp ydb-local:/ydb_certs/ca.pem ~/      # TLS tests expect ~/ca.pem
 
-# Run specific test project
+# Run one test project / one test
 dotnet test src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests/
+dotnet test src/Ydb.Sdk/test/Ydb.Sdk.Ado.Tests/ --filter "FullyQualifiedName~YdbCommandTests"
 
-# Format code (run from src/ to avoid touching examples)
-dotnet format src/YdbSdk.sln
+# EF Core functional tests (CI runs net9.0)
+dotnet test src/EFCore.Ydb/test/EntityFrameworkCore.Ydb.FunctionalTests/ -f net9.0
 ```
 
-Test configuration uses environment variables or `appsettings.json` for the YDB connection
-string. The CI pipeline starts a local YDB via Docker.
+- ADO tests read the connection string from `YDB_TEST_DB`, default
+  `Host=localhost;Port=2136;Database=local;MaxPoolSize=10` (`Ydb.Sdk.Ado.Tests/Utils/TestUtils.cs`).
+- Proxy tests in `Ydb.Sdk.Ado.Tests` additionally need a squid proxy on `:3128`
+  (config in `Ydb.Sdk.Ado.Tests/Proxy/`; see `tests.yml` for the exact `docker run`).
+- `Ydb.Sdk.Ado.Benchmarks` and `Ydb.Sdk.Ado.Stress.Loader` are executables, not test suites.
+- Test stack: xUnit 2.x + Moq. ADO tests inherit `TestBase` (helpers such as
+  `CreateOpenConnectionAsync`, `RunTestWithTemporaryTable`).
+
+### Formatting and inspections
+
+CI does **not** use `dotnet format`. It runs JetBrains ReSharper CLI:
+
+```bash
+dotnet tool install -g JetBrains.ReSharper.GlobalTools --version 2025.3.2
+cd src && jb cleanupcode YdbSdk.sln --profile="Custom Cleanup"
+# examples:  cd examples && jb cleanupcode YdbExamples.sln --profile="Custom Cleanup"
+# slo:       cd slo/src  && jb cleanupcode src.sln        --profile="Custom Cleanup"
+```
+
+The cleanup profile lives in `*.sln.DotSettings`. After cleanup CI fails on any `git diff`.
+A second job runs `jb inspectcode` with minimum severity **WARNING** — new warnings fail the build.
 
 ---
 
 ## CI/CD (`.github/workflows/`)
 
-| Workflow              | Trigger           | Purpose                                             |
-|-----------------------|-------------------|-----------------------------------------------------|
-| `tests.yml`           | PR / push         | Run integration tests against local YDB             |
-| `lint.yml`            | PR / push         | `dotnet format --verify-no-changes` + other linters |
-| `publish.yml`         | Manual            | Publish `Ydb.Sdk` to NuGet                          |
-| `publish-ef.yml`      | Manual            | Publish `EntityFrameworkCore.Ydb` to NuGet          |
-| `codeql-analysis.yml` | Schedule / PR     | Security analysis                                   |
-| `slo.yml`             | Manual / schedule | SLO reliability tests                               |
+| Workflow              | Trigger                       | Purpose                                                                                  |
+|-----------------------|-------------------------------|------------------------------------------------------------------------------------------|
+| `tests.yml`           | PR / push to main / hourly    | SDK tests (YDB `latest`+`trunk` × .NET 8/9), EF tests, runs examples; Codecov upload     |
+| `lint.yml`            | PR / push to main             | ReSharper `cleanupcode` diff check + `inspectcode` for all three solutions               |
+| `check-slo-label.yml` | PR                            | PR must carry the `SLO` label (or `no slo` to skip)                                      |
+| `slo.yml`             | PR                            | SLO for AdoNet / Dapper / EF / Linq2db via `ydb-platform/ydb-slo-action`                 |
+| `slo-topic.yaml`      | PR                            | SLO for TopicService                                                                     |
+| `slo-report.yml`      | after SLO workflows           | Publishes SLO report                                                                     |
+| `publish.yml`         | Manual (PATCH/MINOR, RC flag) | Release `Ydb.Sdk` (tag `vX.Y.Z`)                                                         |
+| `publish-ef.yml`      | Manual (PATCH/MINOR, RC flag) | Release `EntityFrameworkCore.Ydb` (tag `ef-vX.Y.Z`)                                      |
+| `publish-otel.yml`    | Manual (explicit version)     | Release `Ydb.Sdk.OpenTelemetry`                                                          |
+| `codeql-analysis.yml` | PR / push / weekly            | Security analysis                                                                        |
 
-The lint workflow runs `dotnet format` against `YdbSdk.sln` and compares the result to the
-committed files. Any uncommitted formatting diff causes CI to fail. Always format before pushing.
+The hourly `tests.yml` schedule exists to catch flaky tests — avoid timing-sensitive assertions.
+
+---
+
+## Conventions
+
+- **Commits / PR titles:** Conventional Commits with a scope, e.g. `fix(ado): …`, `feat(efcore): …`,
+  `feat(topic): …`, `fix(slo): …`, `feat(opentelemetry): …`. PRs are squash-merged with `(#NNN)`.
+- **CHANGELOG is mandatory for user-visible changes.** Add a bullet at the **top** of the relevant
+  `CHANGELOG.md`, above the first `## vX.Y.Z` header:
+  - `Ydb.Sdk` / `EFCore.Ydb`: no "Unreleased" header — release scripts take everything above the
+    first `## v` line and insert the version header themselves. Style: `- Fix ADO.NET: …`,
+    `- Feat Topic Reader metrics: …`, `- **Breaking Change** ADO.NET: …` (SDK);
+    `- Fixed …` / `- Added …` (EF).
+  - `Ydb.Sdk.OpenTelemetry`: entries go under `## Unreleased`; the version header is written by hand.
+- **EF Core provider depends on the published `Ydb.Sdk` NuGet package** (see
+  `EntityFrameworkCore.Ydb.csproj`), not on the project. EF tests reference the SDK project, so a
+  provider change that needs a new SDK API compiles in tests but not in the package until the SDK is
+  released and the version is bumped.
+- **EF 9 vs EF 10:** `net8.0` builds against EF Core 9 with `EFCORE9` defined, `net10.0` against
+  EF Core 10. Version-specific code uses `#if EFCORE9` or `*.Ef9.cs` / `*.Ef10.cs` files excluded in the csproj.
+- Library projects use `Nullable` + `ImplicitUsings`.
+- `tmp/`, `generated-images/`, `.omo/` are local scratch — do not commit them.
 
 ---
 
