@@ -313,6 +313,16 @@ The hourly `tests.yml` schedule exists to catch flaky tests — avoid timing-sen
 - Library projects use `Nullable` + `ImplicitUsings`.
 - `tmp/`, `generated-images/`, `.omo/` are local scratch — do not commit them.
 
+### Before you finish a change
+
+- Build `src/YdbSdk.sln` and run the affected test project against a local YDB (see "Build and Test").
+  If YDB is not running, say so — don't silently skip tests.
+- Run `jb cleanupcode` (see "Formatting and inspections") on every solution you touched.
+- Add a CHANGELOG bullet for every user-visible change.
+- When you add or rename a meter, instrument, attribute or span, update the metrics/tracing tables in
+  this file in the same change.
+- Don't touch `publish*.yml`, `.github/scripts/publish*.sh` or version numbers unless asked.
+
 ---
 
 ## OpenTelemetry E2E Playground (`examples/Ydb.Sdk.AdoNet.OpenTelemetry/`)
