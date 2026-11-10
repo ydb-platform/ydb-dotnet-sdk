@@ -1,6 +1,9 @@
 using System.Data;
 using System.Net;
 using Xunit;
+using Ydb.Query;
+using Ydb.Sdk.Ado.Session;
+using Ydb.Sdk.Ado.Tests.Session;
 using Ydb.Sdk.Ado.Tests.Utils;
 
 namespace Ydb.Sdk.Ado.Tests;
@@ -15,6 +18,60 @@ public sealed class YdbConnectionTests : TestBase
 
     private volatile int _counter;
 
+    [Fact]
+    public async Task ServerVersion_WhenOpen_ReturnsTheServersVersion()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        var expected =
+            (string?)await new YdbCommand("SELECT CAST(Version() AS Text);", connection).ExecuteScalarAsync();
+
+        Assert.False(string.IsNullOrEmpty(expected));
+        Assert.Equal(expected, connection.ServerVersion);
+    }
+
+    [Fact]
+    public async Task ServerVersion_WhenServerReturnsValue_CachesUntilReopened()
+    {
+        var versions = new Queue<string>(["first-version", "second-version"]);
+        var factory = new MockPoolingSessionFactory(1)
+        {
+            ExecuteQuery = _ => new MockAsyncEnumerator<ExecuteQueryResponsePart>(
+            [
+                new ExecuteQueryResponsePart
+                {
+                    Status = StatusIds.Types.StatusCode.Success,
+                    ResultSet = new ResultSet
+                    {
+                        Rows = { new Ydb.Value { Items = { new Ydb.Value { TextValue = versions.Dequeue() } } } }
+                    }
+                }
+            ])
+        };
+        var settings = new YdbConnectionStringBuilder
+        {
+            MaxPoolSize = 1,
+            PoolName = $"server-version-{Guid.NewGuid():N}",
+            LoggerFactory = TestUtils.LoggerFactory
+        };
+        await using var source = new PoolingSessionSource<MockPoolingSession>(factory, settings);
+        Assert.True(PoolManager.Pools.TryAdd(settings.PoolKey, source));
+
+        try
+        {
+            await using var connection = new YdbConnection(settings);
+            await connection.OpenAsync();
+
+            Assert.Equal("first-version", connection.ServerVersion);
+            Assert.Equal("first-version", connection.ServerVersion);
+            await connection.CloseAsync();
+            await connection.OpenAsync();
+            Assert.Equal("second-version", connection.ServerVersion);
+        }
+        finally
+        {
+            Assert.True(PoolManager.Pools.TryRemove(settings.PoolKey, out _));
+        }
+    }
 
     [Fact]
     public async Task ClearPool_WhenHasActiveConnection_CloseActiveConnectionOnClose()
