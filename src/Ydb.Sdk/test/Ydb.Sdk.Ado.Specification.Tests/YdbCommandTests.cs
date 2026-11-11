@@ -29,14 +29,6 @@ public class YdbCommandTests(YdbFactoryFixture fixture) : CommandTestBase<YdbFac
         base.ExecuteReader_HasRows_is_false_for_comment();
     }
 
-#pragma warning disable xUnit1004
-    [Fact(Skip = "CommandBehavior don't supported")]
-#pragma warning restore xUnit1004
-    public override void ExecuteReader_supports_CloseConnection()
-    {
-        base.ExecuteReader_supports_CloseConnection();
-    }
-
     public override void ExecuteReader_throws_when_transaction_required()
     {
         using var connection = CreateOpenConnection();
