@@ -418,7 +418,8 @@ internal abstract class PoolingSessionBase<T>(PoolingSessionSource<T> source) : 
         Dictionary<string, TypedValue> parameters,
         GrpcRequestSettings settings,
         TransactionControl? txControl,
-        StatsMode statsMode = StatsMode.None
+        StatsMode statsMode = StatsMode.None,
+        bool collectAffectedRows = false
     );
 
     public abstract void OnNotSuccessStatusCode(StatusCode code);

@@ -278,6 +278,24 @@ public class YdbTransactionTests : TestBase
     }
 
     [Fact]
+    public async Task CloseConnection_WhenReaderCloseFails_ClosesConnection()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var transaction = connection.BeginTransaction();
+        await using var command = new YdbCommand("SELECT 1; SELECT 2;", connection)
+        {
+            Transaction = transaction
+        };
+        await using var reader = await command.ExecuteReaderAsync(CommandBehavior.CloseConnection);
+
+        Assert.True(await reader.ReadAsync());
+        var exception = await Assert.ThrowsAsync<YdbException>(() => reader.CloseAsync());
+
+        Assert.Equal(StatusCode.StreamCancelled, exception.Code);
+        Assert.Equal(ConnectionState.Closed, connection.State);
+    }
+
+    [Fact]
     public void CommitAndRollback_WhenStreamIsOpened_ThrowException()
     {
         using var connection = CreateOpenConnection();

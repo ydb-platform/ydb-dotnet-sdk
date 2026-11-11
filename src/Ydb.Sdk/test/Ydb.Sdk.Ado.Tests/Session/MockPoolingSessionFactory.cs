@@ -19,6 +19,8 @@ internal class MockPoolingSessionFactory(int maxPoolSize) : IPoolingSessionFacto
     internal Func<int, IServerStream<ExecuteQueryResponsePart>> ExecuteQuery { private get; init; } =
         _ => throw new NotImplementedException();
 
+    internal Action<StatsMode, bool>? ExecuteQueryOptions { private get; init; }
+
     public MockPoolingSession NewSession(PoolingSessionSource<MockPoolingSession> source) =>
         new(source,
             async sessionCountOpened =>
@@ -37,6 +39,7 @@ internal class MockPoolingSessionFactory(int maxPoolSize) : IPoolingSessionFacto
             },
             IsBroken,
             ExecuteQuery,
+            ExecuteQueryOptions,
             Interlocked.Increment(ref _sessionOpened)
         );
 
@@ -51,6 +54,7 @@ internal class MockPoolingSession(
     Func<Task> mockDeleteSession,
     Func<int, bool> mockIsBroken,
     Func<int, IServerStream<ExecuteQueryResponsePart>> executeQuery,
+    Action<StatsMode, bool>? executeQueryOptions,
     int sessionId
 ) : PoolingSessionBase<MockPoolingSession>(source)
 {
@@ -68,8 +72,13 @@ internal class MockPoolingSession(
         Dictionary<string, TypedValue> parameters,
         GrpcRequestSettings settings,
         TransactionControl? txControl,
-        StatsMode statsMode = StatsMode.None
-    ) => new(executeQuery(sessionId));
+        StatsMode statsMode = StatsMode.None,
+        bool collectAffectedRows = false
+    )
+    {
+        executeQueryOptions?.Invoke(statsMode, collectAffectedRows);
+        return new ValueTask<IServerStream<ExecuteQueryResponsePart>>(executeQuery(sessionId));
+    }
 
     public override void OnNotSuccessStatusCode(StatusCode code) => _isBroken = true;
 }

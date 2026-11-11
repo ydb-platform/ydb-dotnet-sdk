@@ -14,7 +14,8 @@ internal interface ISession : IDisposable
         Dictionary<string, TypedValue> parameters,
         GrpcRequestSettings settings,
         TransactionControl? txControl,
-        StatsMode statsMode = StatsMode.None
+        StatsMode statsMode = StatsMode.None,
+        bool collectAffectedRows = false
     );
 
     void OnNotSuccessStatusCode(StatusCode code);
