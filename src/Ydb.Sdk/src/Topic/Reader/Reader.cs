@@ -527,7 +527,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
 
     public async Task CommitOffsetRange(OffsetsRange offsetsRange, long partitionSessionId)
     {
-        var tcsCommit = new TaskCompletionSource();
+        var tcsCommit = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         await using var register = _lifecycleReaderSessionCts.Token.Register(() =>
             tcsCommit.TrySetException(new ReaderException($"ReaderSession[{SessionId}] was deactivated"))
@@ -618,6 +618,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                     "ReaderSession[{SessionId}]: received PartitionData for unknown(closed?) " +
                     "PartitionSession[{PartitionSessionId}], all messages were skipped!",
                     SessionId, partitionSessionId);
+                await TryReadRequestBytes(approximatelyPartitionBytesSize).ConfigureAwait(false);
             }
         }
     }

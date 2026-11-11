@@ -1399,6 +1399,77 @@ public class ReaderUnitTests
     }
 
     [Fact]
+    public async Task ReadAsync_WhenPartitionSessionStoppedWithUnreadMessages_SendsReadRequestForTheirBytes()
+    {
+        var tcsMoveNext = new TaskCompletionSource<bool>();
+        var tcsStopped = new TaskCompletionSource();
+        var tcsReadRequest = new TaskCompletionSource();
+
+        _mockStream.SetupSequence(stream => stream.Write(It.IsAny<FromClient>()))
+            .Returns(Task.CompletedTask)
+            .Returns(Task.CompletedTask)
+            .Returns(() =>
+            {
+                tcsMoveNext.SetResult(true);
+
+                return Task.CompletedTask;
+            })
+            .Returns(() =>
+            {
+                tcsReadRequest.SetResult();
+
+                return Task.CompletedTask;
+            });
+
+        _mockStream.SetupSequence(stream => stream.MoveNextAsync())
+            .ReturnsAsync(true)
+            .ReturnsAsync(true)
+            .Returns(tcsMoveNext.Task)
+            .ReturnsAsync(true)
+            .Returns(() =>
+            {
+                tcsStopped.SetResult();
+
+                return _lastMoveNext;
+            });
+
+        _mockStream.SetupSequence(stream => stream.Current)
+            .Returns(InitResponse)
+            .Returns(StartPartitionSessionRequest())
+            .Returns(ReadResponse(0, BitConverter.GetBytes(100), BitConverter.GetBytes(100)))
+            .Returns(new FromServer
+            {
+                Status = StatusIds.Types.StatusCode.Success,
+                StopPartitionSessionRequest = new StreamReadMessage.Types.StopPartitionSessionRequest
+                {
+                    PartitionSessionId = 1,
+                    CommittedOffset = 0,
+                    Graceful = false
+                }
+            });
+
+        await using var reader = new ReaderBuilder<int>(_driverFactoryMock)
+        {
+            ConsumerName = "Consumer",
+            MemoryUsageMaxBytes = 100,
+            SubscribeSettings = { new SubscribeSettings("/topic") }
+        }.Build();
+
+        await tcsStopped.Task;
+
+        using var cts = new CancellationTokenSource();
+        var readTask = reader.ReadAsync(cts.Token);
+
+        await tcsReadRequest.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await cts.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => readTask.AsTask());
+
+        _mockStream.Verify(stream => stream.Write(It.IsAny<FromClient>()), Times.Exactly(4));
+        _mockStream.Verify(stream => stream.Write(It.Is<FromClient>(msg =>
+            msg.ReadRequest != null && msg.ReadRequest.BytesSize == 50)), Times.Once);
+    }
+
+    [Fact]
     public async Task ReadAsync_WhenFailDeserializer_ThrowReaderExceptionAndInvokeReadRequest()
     {
         var tcsMoveNext = new TaskCompletionSource<bool>();
