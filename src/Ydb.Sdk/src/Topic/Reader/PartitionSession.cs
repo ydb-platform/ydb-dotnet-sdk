@@ -10,11 +10,11 @@ internal class PartitionSession(
     long partitionId,
     long commitedOffset)
 {
-    private readonly object _lock = new();
     private readonly ConcurrentQueue<CommitSending> _waitCommitMessages = new();
 
     private volatile bool _isStopped;
     private long _commitedOffset = commitedOffset;
+    private long _stopCommitedOffset;
 
     internal bool IsActive => !_isStopped;
 
@@ -43,26 +43,32 @@ internal class PartitionSession(
     {
         var endOffset = commitSending.OffsetsRange.End;
 
-        lock (_lock)
+        if (endOffset < CommitedOffset)
         {
-            if (endOffset < CommitedOffset)
-            {
-                commitSending.TcsCommit.SetResult();
+            commitSending.TcsCommit.SetResult();
 
-                return false;
-            }
-
-            if (_isStopped)
-            {
-                Utils.SetPartitionClosedException(commitSending, PartitionSessionId);
-
-                return false;
-            }
-
-            _waitCommitMessages.Enqueue(commitSending);
-
-            return true;
+            return false;
         }
+
+        if (_isStopped)
+        {
+            Utils.SetPartitionClosedException(commitSending, PartitionSessionId);
+
+            return false;
+        }
+
+        _waitCommitMessages.Enqueue(commitSending);
+        Interlocked.MemoryBarrier();
+
+        // Stop could drain the queue between the _isStopped check and Enqueue
+        if (_isStopped)
+        {
+            CompleteWaitCommitMessages();
+
+            return false;
+        }
+
+        return true;
     }
 
     internal long HandleCommitedOffset(long commitedOffset)
@@ -75,19 +81,15 @@ internal class PartitionSession(
                 PartitionSessionId, commitedOffset, CommitedOffset);
         }
 
+        CommitedOffset = commitedOffset;
         var acknowledgedMessages = 0L;
 
-        lock (_lock)
+        while (_waitCommitMessages.TryPeek(out var waitCommitTcs) &&
+               waitCommitTcs.OffsetsRange.End <= commitedOffset)
         {
-            CommitedOffset = commitedOffset;
-
-            while (_waitCommitMessages.TryPeek(out var waitCommitTcs) &&
-                   waitCommitTcs.OffsetsRange.End <= commitedOffset)
-            {
-                _waitCommitMessages.TryDequeue(out _);
-                waitCommitTcs.TcsCommit.SetResult();
-                acknowledgedMessages += waitCommitTcs.OffsetsRange.End - waitCommitTcs.OffsetsRange.Start;
-            }
+            _waitCommitMessages.TryDequeue(out _);
+            waitCommitTcs.TcsCommit.SetResult();
+            acknowledgedMessages += waitCommitTcs.OffsetsRange.End - waitCommitTcs.OffsetsRange.Start;
         }
 
         return acknowledgedMessages;
@@ -95,20 +97,26 @@ internal class PartitionSession(
 
     internal void Stop(long commitedOffset)
     {
-        lock (_lock)
-        {
-            _isStopped = true;
+        Volatile.Write(ref _stopCommitedOffset, commitedOffset);
+        _isStopped = true;
+        Interlocked.MemoryBarrier();
 
-            while (_waitCommitMessages.TryDequeue(out var commitSending))
+        CompleteWaitCommitMessages();
+    }
+
+    private void CompleteWaitCommitMessages()
+    {
+        var stopCommitedOffset = Volatile.Read(ref _stopCommitedOffset);
+
+        while (_waitCommitMessages.TryDequeue(out var commitSending))
+        {
+            if (commitSending.OffsetsRange.End <= stopCommitedOffset)
             {
-                if (commitSending.OffsetsRange.End <= commitedOffset)
-                {
-                    commitSending.TcsCommit.SetResult();
-                }
-                else
-                {
-                    Utils.SetPartitionClosedException(commitSending, PartitionSessionId);
-                }
+                commitSending.TcsCommit.TrySetResult();
+            }
+            else
+            {
+                Utils.SetPartitionClosedException(commitSending, PartitionSessionId);
             }
         }
     }

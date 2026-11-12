@@ -527,7 +527,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
 
     public async Task CommitOffsetRange(OffsetsRange offsetsRange, long partitionSessionId)
     {
-        var tcsCommit = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var tcsCommit = new TaskCompletionSource();
 
         await using var register = _lifecycleReaderSessionCts.Token.Register(() =>
             tcsCommit.TrySetException(new ReaderException($"ReaderSession[{SessionId}] was deactivated"))
