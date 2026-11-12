@@ -618,6 +618,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                     "ReaderSession[{SessionId}]: received PartitionData for unknown(closed?) " +
                     "PartitionSession[{PartitionSessionId}], all messages were skipped!",
                     SessionId, partitionSessionId);
+                await TryReadRequestBytes(approximatelyPartitionBytesSize).ConfigureAwait(false);
             }
         }
     }

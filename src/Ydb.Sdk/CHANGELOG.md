@@ -2,6 +2,8 @@
 
 - Fix ADO.NET: connection validation rejects only explicitly closed connections and lets operations
   on broken sessions follow normal execution without reopening them.
+- Fix Topic Reader: return the read budget of buffered messages dropped after their partition session stops, so the
+  reader no longer stalls forever after repeated partition rebalances.
 - Feat Topic Reader metrics: add the `topic` attribute to `ydb.topic.reader.commit_offset.lag.max`, reporting the maximum
   commit offset gap per topic.
 - Feat Topic Reader metrics: add the `topic` attribute to `ydb.topic.reader.partition_session.count`.
