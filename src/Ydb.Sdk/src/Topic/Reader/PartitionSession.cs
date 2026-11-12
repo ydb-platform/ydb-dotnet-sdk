@@ -14,7 +14,6 @@ internal class PartitionSession(
 
     private volatile bool _isStopped;
     private long _commitedOffset = commitedOffset;
-    private long _stopCommitedOffset;
 
     internal bool IsActive => !_isStopped;
 
@@ -58,15 +57,6 @@ internal class PartitionSession(
         }
 
         _waitCommitMessages.Enqueue(commitSending);
-        Interlocked.MemoryBarrier();
-
-        // Stop could drain the queue between the _isStopped check and Enqueue
-        if (_isStopped)
-        {
-            CompleteWaitCommitMessages();
-
-            return false;
-        }
 
         return true;
     }
@@ -97,22 +87,13 @@ internal class PartitionSession(
 
     internal void Stop(long commitedOffset)
     {
-        Volatile.Write(ref _stopCommitedOffset, commitedOffset);
         _isStopped = true;
-        Interlocked.MemoryBarrier();
-
-        CompleteWaitCommitMessages();
-    }
-
-    private void CompleteWaitCommitMessages()
-    {
-        var stopCommitedOffset = Volatile.Read(ref _stopCommitedOffset);
 
         while (_waitCommitMessages.TryDequeue(out var commitSending))
         {
-            if (commitSending.OffsetsRange.End <= stopCommitedOffset)
+            if (commitSending.OffsetsRange.End <= commitedOffset)
             {
-                commitSending.TcsCommit.TrySetResult();
+                commitSending.TcsCommit.SetResult();
             }
             else
             {
