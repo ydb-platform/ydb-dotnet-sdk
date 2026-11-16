@@ -1,3 +1,6 @@
+- Fix Topic Reader: `CommitAsync` called at the moment the server stops the partition session no longer hangs forever;
+  it fails with `ReaderException` like any commit to a stopped partition session.
+
 ## v0.38.0
 
 - Fix ADO.NET: connection validation rejects only explicitly closed connections and lets operations
