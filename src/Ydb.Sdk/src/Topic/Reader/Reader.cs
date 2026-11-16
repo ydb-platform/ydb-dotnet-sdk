@@ -574,11 +574,6 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             Utils.SetPartitionClosedException(commitSending, partitionSessionId);
         }
 
-        // Stop may drain the waiting commits right before RegisterCommitRequest enqueues this one
-        await using var stopRegister = (partitionSession?.StopToken ?? CancellationToken.None).Register(() =>
-            Utils.SetPartitionClosedException(commitSending, partitionSessionId)
-        ).ConfigureAwait(false);
-
         await tcsCommit.Task.ConfigureAwait(false);
     }
 

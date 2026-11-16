@@ -11,15 +11,11 @@ internal class PartitionSession(
     long commitedOffset)
 {
     private readonly ConcurrentQueue<CommitSending> _waitCommitMessages = new();
-    private readonly CancellationTokenSource _stopCts = new();
 
     private volatile bool _isStopped;
     private long _commitedOffset = commitedOffset;
 
     internal bool IsActive => !_isStopped;
-
-    // Cancelled after Stop has drained the waiting commits.
-    internal CancellationToken StopToken => _stopCts.Token;
 
     // Identifier of partition session. Unique inside one RPC call.
     internal long PartitionSessionId => partitionSessionId;
@@ -53,14 +49,16 @@ internal class PartitionSession(
             return false;
         }
 
+        // Enqueue before checking _isStopped: if Stop drains the queue in between, either Stop sees this commit
+        // in the queue or this check sees _isStopped, so the commit is always completed.
+        _waitCommitMessages.Enqueue(commitSending);
+
         if (_isStopped)
         {
             Utils.SetPartitionClosedException(commitSending, PartitionSessionId);
 
             return false;
         }
-
-        _waitCommitMessages.Enqueue(commitSending);
 
         return true;
     }
@@ -92,19 +90,21 @@ internal class PartitionSession(
     internal void Stop(long commitedOffset)
     {
         _isStopped = true;
+        // Keeps the _isStopped write from being reordered after the queue reads below (RegisterCommitRequest
+        // relies on it). Enqueue publishes the commit with an interlocked operation, a full fence on its side.
+        Interlocked.MemoryBarrier();
 
         while (_waitCommitMessages.TryDequeue(out var commitSending))
         {
+            // RegisterCommitRequest may have already failed this commit after seeing _isStopped
             if (commitSending.OffsetsRange.End <= commitedOffset)
             {
-                commitSending.TcsCommit.SetResult();
+                commitSending.TcsCommit.TrySetResult();
             }
             else
             {
                 Utils.SetPartitionClosedException(commitSending, PartitionSessionId);
             }
         }
-
-        _stopCts.Cancel();
     }
 }
