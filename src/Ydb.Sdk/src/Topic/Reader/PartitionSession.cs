@@ -11,11 +11,15 @@ internal class PartitionSession(
     long commitedOffset)
 {
     private readonly ConcurrentQueue<CommitSending> _waitCommitMessages = new();
+    private readonly CancellationTokenSource _stopCts = new();
 
     private volatile bool _isStopped;
     private long _commitedOffset = commitedOffset;
 
     internal bool IsActive => !_isStopped;
+
+    // Cancelled after Stop has drained the waiting commits.
+    internal CancellationToken StopToken => _stopCts.Token;
 
     // Identifier of partition session. Unique inside one RPC call.
     internal long PartitionSessionId => partitionSessionId;
@@ -100,5 +104,7 @@ internal class PartitionSession(
                 Utils.SetPartitionClosedException(commitSending, PartitionSessionId);
             }
         }
+
+        _stopCts.Cancel();
     }
 }
