@@ -424,9 +424,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         }
     }
 
-    // Avoid using 'async' for method with the 'void' return type or catch all exceptions in it:
-    // any exceptions unhandled by the method might lead to the process crash
-    internal async Task TryReadRequestBytes(long bytes)
+    internal void TryReadRequestBytes(long bytes)
     {
         var readRequestBytes = Interlocked.Add(ref _readRequestBytes, bytes);
 
@@ -435,12 +433,11 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             return;
         }
 
-        if (Interlocked.CompareExchange(ref _readRequestBytes, 0, readRequestBytes) == readRequestBytes)
+        // TryWrite instead of WriteAsync: the channel is unbounded, and a closed session must not throw here
+        if (Interlocked.CompareExchange(ref _readRequestBytes, 0, readRequestBytes) == readRequestBytes &&
+            _channelFromClientMessageSending.Writer.TryWrite(new MessageFromClient
+                { ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = readRequestBytes } }))
         {
-            await _channelFromClientMessageSending.Writer
-                .WriteAsync(new MessageFromClient
-                    { ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = readRequestBytes } })
-                .ConfigureAwait(false);
             _metrics.ReportCreditBalanceBytes(readRequestBytes);
         }
     }
@@ -618,7 +615,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
                     "ReaderSession[{SessionId}]: received PartitionData for unknown(closed?) " +
                     "PartitionSession[{PartitionSessionId}], all messages were skipped!",
                     SessionId, partitionSessionId);
-                await TryReadRequestBytes(approximatelyPartitionBytesSize).ConfigureAwait(false);
+                TryReadRequestBytes(approximatelyPartitionBytesSize);
             }
         }
     }

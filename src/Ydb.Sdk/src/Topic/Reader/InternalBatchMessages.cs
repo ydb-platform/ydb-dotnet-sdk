@@ -26,19 +26,16 @@ internal class InternalBatchMessages<TValue>(
     {
         if (!IsActive)
         {
-            if (readerSession.IsActive)
+            var unreadBytes = 0L;
+            while (_readMessageCount < _messageCount)
             {
-                var unreadBytes = 0L;
-                while (_readMessageCount < _messageCount)
-                {
-                    unreadBytes += Utils.CalculateApproximatelyBytesSize(
-                        approximatelyBatchSize, _messageCount, _readMessageCount++);
-                }
+                unreadBytes += Utils.CalculateApproximatelyBytesSize(
+                    approximatelyBatchSize, _messageCount, _readMessageCount++);
+            }
 
-                if (unreadBytes > 0)
-                {
-                    _ = readerSession.TryReadRequestBytes(unreadBytes);
-                }
+            if (unreadBytes > 0)
+            {
+                readerSession.TryReadRequestBytes(unreadBytes);
             }
 
             message = null;
@@ -53,7 +50,7 @@ internal class InternalBatchMessages<TValue>(
 
         var batch = batches[_batchIndex];
         var messageData = batch.MessageData[_startMessageDataIndex++];
-        _ = readerSession.TryReadRequestBytes(
+        readerSession.TryReadRequestBytes(
             Utils.CalculateApproximatelyBytesSize(approximatelyBatchSize, _messageCount, _readMessageCount++));
 
         TValue value;
