@@ -61,6 +61,9 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
     IEnumerable<PartitionSession> IReaderMetricsSource.PartitionSessions =>
         Volatile.Read(ref _currentReaderSession)?.PartitionSessions ?? [];
 
+    long IReaderMetricsSource.CreditBalanceBytes =>
+        Volatile.Read(ref _currentReaderSession)?.CreditBalanceBytes ?? 0;
+
     double IReaderMetricsSource.LocalBufferMessageAgeMax =>
         _receivedMessagesChannel.Reader.TryPeek(out var batch) && batch.ReceivedTimestamp > 0
             ? Stopwatch.GetElapsedTime(batch.ReceivedTimestamp).TotalSeconds
@@ -123,7 +126,6 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
         }
 
         Volatile.Write(ref _currentReaderSession, null);
-        _metrics.ResetCreditBalanceBytes();
         _metrics.ResetLocalBufferMessages();
         _metrics.ReportSessionError(statusCode);
         _ = Task.Run(Initialize);
@@ -223,7 +225,6 @@ internal class Reader<TValue> : IReader<TValue>, IReaderMetricsSource
                 ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = _config.MemoryUsageMaxBytes }
             }).ConfigureAwait(false);
 
-            _metrics.ResetCreditBalanceBytes(_config.MemoryUsageMaxBytes);
             Interlocked.Exchange(
                 ref _currentReaderSession,
                 new ReaderSession<TValue>(
@@ -321,6 +322,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     private readonly ConcurrentDictionary<long, PartitionSession> _partitionSessions = new();
 
     private long _readRequestBytes;
+    private long _creditBalanceBytes;
 
     internal ReaderSession(
         ReaderConfig config,
@@ -338,11 +340,15 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
         _channelWriter = channelWriter;
         _deserializer = deserializer;
         _metrics = metrics;
+        _creditBalanceBytes = config.MemoryUsageMaxBytes;
         _runProcessingStreamResponse = RunProcessingStreamResponse();
         _runProcessingStreamRequest = RunProcessingStreamRequest();
     }
 
     internal IEnumerable<PartitionSession> PartitionSessions => _partitionSessions.Values;
+
+    // The credit of this session only: a stopped session can't change what the gauge reports for the new one
+    internal long CreditBalanceBytes => Interlocked.Read(ref _creditBalanceBytes);
 
     private async Task RunProcessingStreamResponse()
     {
@@ -438,7 +444,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
             _channelFromClientMessageSending.Writer.TryWrite(new MessageFromClient
                 { ReadRequest = new StreamReadMessage.Types.ReadRequest { BytesSize = readRequestBytes } }))
         {
-            _metrics.ReportCreditBalanceBytes(readRequestBytes);
+            Interlocked.Add(ref _creditBalanceBytes, readRequestBytes);
         }
     }
 
@@ -578,7 +584,7 @@ internal class ReaderSession<TValue> : TopicSession<MessageFromClient, MessageFr
     {
         var receivedTimestamp = ReaderMetricsReporter.ReportReadResponseStart();
         var bytesSize = readResponse.BytesSize;
-        _metrics.ReportCreditBalanceBytes(-bytesSize);
+        Interlocked.Add(ref _creditBalanceBytes, -bytesSize);
         _metrics.ReportReceivedBytes(bytesSize);
         var partitionCount = readResponse.PartitionData.Count;
 
