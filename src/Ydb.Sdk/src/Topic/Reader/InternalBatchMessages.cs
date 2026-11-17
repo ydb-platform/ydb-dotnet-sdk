@@ -26,6 +26,18 @@ internal class InternalBatchMessages<TValue>(
     {
         if (!IsActive)
         {
+            var unreadBytes = 0L;
+            while (_readMessageCount < _messageCount)
+            {
+                unreadBytes += Utils.CalculateApproximatelyBytesSize(
+                    approximatelyBatchSize, _messageCount, _readMessageCount++);
+            }
+
+            if (unreadBytes > 0)
+            {
+                readerSession.TryReadRequestBytes(unreadBytes);
+            }
+
             message = null;
             return false;
         }
@@ -38,7 +50,7 @@ internal class InternalBatchMessages<TValue>(
 
         var batch = batches[_batchIndex];
         var messageData = batch.MessageData[_startMessageDataIndex++];
-        _ = readerSession.TryReadRequestBytes(
+        readerSession.TryReadRequestBytes(
             Utils.CalculateApproximatelyBytesSize(approximatelyBatchSize, _messageCount, _readMessageCount++));
 
         TValue value;
@@ -73,12 +85,6 @@ internal class InternalBatchMessages<TValue>(
 
     internal bool TryPublicBatch([MaybeNullWhen(false)] out BatchMessages<TValue> batchMessages)
     {
-        if (!IsActive)
-        {
-            batchMessages = null;
-            return false;
-        }
-
         var startOffset = partitionsSession.PrevEndOffsetMessage;
 
         var messages = new List<Message<TValue>>();

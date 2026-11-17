@@ -1,3 +1,5 @@
+- Fix Topic Reader: return the read budget of buffered messages dropped after their partition session stops, so the
+  reader no longer stalls forever after repeated partition rebalances.
 - Fix Topic Reader: `CommitAsync` called at the moment the server stops the partition session no longer hangs forever;
   it fails with `ReaderException` like any commit to a stopped partition session.
 
