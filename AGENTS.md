@@ -136,7 +136,7 @@ Retry delay strategy by status code:
 
 One instance per session pool. Meter name: **`Ydb.Sdk`**.
 
-All `ydb.query.session.*` metrics include the attribute **`ydb.query.session.pool.name`** (from the `PoolName` connection string option; defaults to the full connection string).
+All `ydb.query.session.*` metrics include the attribute **`ydb.query.session.pool.name`** (from the `PoolName` connection string option; defaults to the connection string without the password).
 
 | Metric                               | Kind            | Unit          | Attributes                                                                 | Description                                                                                                               |
 |--------------------------------------|-----------------|---------------|----------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|

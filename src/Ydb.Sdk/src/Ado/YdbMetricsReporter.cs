@@ -142,7 +142,7 @@ internal sealed class YdbMetricsReporter : IDisposable
             { "endpoint", settings.Endpoint }
         },
         new KeyValuePair<string, object?>("ydb.query.session.pool.name",
-            settings.PoolName ?? settings.ConnectionString),
+            settings.PoolName ?? settings.ConnectionStringWithoutPassword),
         settings.ConnectionString
     );
 
