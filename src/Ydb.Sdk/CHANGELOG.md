@@ -1,3 +1,5 @@
+## v0.38.1
+
 - Fix ADO.NET: the default `ydb.query.session.pool.name` metric attribute no longer contains the password from the
   connection string.
 - Fix Topic Reader: return the read budget of buffered messages dropped after their partition session stops, so the
