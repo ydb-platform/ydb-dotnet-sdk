@@ -638,7 +638,7 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
     /// When set, this value is reported as the <c>ydb.query.session.pool.name</c> attribute on
     /// connection-pool metrics. Useful when multiple pools connect to the same database and you need
     /// to distinguish them in dashboards.
-    /// <para>Default value: null (the connection string is used instead).</para>
+    /// <para>Default value: null (the connection string without the password is used instead).</para>
     /// </remarks>
     public string? PoolName
     {
@@ -777,6 +777,9 @@ public sealed class YdbConnectionStringBuilder : DbConnectionStringBuilder, IDri
     /// so builders that differ only by code-only options do not share a pool.
     /// </summary>
     internal string PoolKey => ConnectionString + ClientInfoKeyFragment + ProxyKeyFragment;
+
+    internal string ConnectionStringWithoutPassword =>
+        new YdbConnectionStringBuilder(ConnectionString) { Password = null }.ConnectionString;
 
     internal string Endpoint => $"{Host}:{Port}";
 

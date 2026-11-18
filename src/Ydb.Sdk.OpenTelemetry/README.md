@@ -59,7 +59,7 @@ Meter names: `Ydb.Sdk` for ADO.NET and `Ydb.Sdk.Topic` for Topic. `AddYdb()` sub
 
 Meter name: `Ydb.Sdk`.
 
-Every `ydb.query.session.*` metric includes **`ydb.query.session.pool.name`** (via `PoolName` in the connection string; otherwise the full connection string).
+Every `ydb.query.session.*` metric includes **`ydb.query.session.pool.name`** (via `PoolName` in the connection string; otherwise the connection string without the password).
 
 | Metric                               | Kind            | Unit          | Attributes                                                                 | Description                                                                                         |
 | ------------------------------------ | --------------- | ------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |

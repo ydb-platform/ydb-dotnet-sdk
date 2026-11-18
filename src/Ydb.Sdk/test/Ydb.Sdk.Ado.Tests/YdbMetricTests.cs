@@ -771,6 +771,24 @@ public class YdbMetricTests : TestBase
     }
 
     [Fact]
+    public async Task PoolName_WhenNotSet_UsesConnectionStringWithoutPassword()
+    {
+        var exportedItems = new List<Metric>();
+        using var meterProvider = CreateMeterProvider(exportedItems);
+
+        var poolName = new YdbConnectionStringBuilder(TestUtils.ConnectionString) { MaxPoolSize = 3 }.ConnectionString;
+        var settings = new YdbConnectionStringBuilder(poolName) { Password = "secret-password" };
+
+        await using var dataSource = new YdbDataSource(settings);
+        await using var _ = await dataSource.OpenConnectionAsync();
+
+        meterProvider.ForceFlush();
+
+        var max = GetMetric(exportedItems, "ydb.query.session.max");
+        Assert.Equal(3, GetPoolPoints(max.GetMetricPoints(), poolName).Single().GetGaugeLastValueLong());
+    }
+
+    [Fact]
     public async Task ConnectionTimeouts()
     {
         var exportedItems = new List<Metric>();
