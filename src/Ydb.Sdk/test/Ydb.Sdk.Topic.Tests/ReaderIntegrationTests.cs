@@ -21,7 +21,7 @@ public class ReaderIntegrationTests
         var reader = new ReaderBuilder<string>(Utils.ConnectionString)
         {
             ConsumerName = "Consumer",
-            SubscribeSettings = { new SubscribeSettings(_topicName) },
+            SubscribeSettings = { new SubscribeSettings(_topicName) { ReadFrom = DateTime.Now } },
             MemoryUsageMaxBytes = 200
         }.Build();
 

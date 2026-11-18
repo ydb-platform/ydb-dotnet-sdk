@@ -37,6 +37,11 @@ public sealed class TopicClient : IAsyncDisposable
         _driver = GetDriver(ydbConnectionStringBuilder).AsTask().Result;
     }
 
+    internal TopicClient(IDriverFactory driverFactory)
+    {
+        _driver = GetDriver(driverFactory).AsTask().Result;
+    }
+
     public async Task CreateTopic(CreateTopicSettings settings)
     {
         var protoSettings = new CreateTopicRequest
@@ -67,6 +72,7 @@ public sealed class TopicClient : IAsyncDisposable
 
         foreach (var codec in settings.SupportedCodecs)
         {
+            protoSettings.SupportedCodecs ??= new SupportedCodecs();
             protoSettings.SupportedCodecs.Codecs.Add((int)codec);
         }
 
@@ -86,6 +92,7 @@ public sealed class TopicClient : IAsyncDisposable
 
             foreach (var codec in consumer.SupportedCodecs)
             {
+                protoConsumer.SupportedCodecs ??= new SupportedCodecs();
                 protoConsumer.SupportedCodecs.Codecs.Add((int)codec);
             }
 
