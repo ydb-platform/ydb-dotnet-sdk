@@ -9,6 +9,8 @@ internal interface IReaderMetricsSource
     IEnumerable<PartitionSession> PartitionSessions { get; }
 
     double LocalBufferMessageAgeMax { get; }
+
+    long CreditBalanceBytes { get; }
 }
 
 /// <summary>
@@ -26,11 +28,9 @@ internal sealed class ReaderMetricsReporter : IDisposable
     private static readonly ObservableGauge<double> LocalBufferMessageAgeMax;
     private static readonly Counter<long> CommitQueued;
     private static readonly Counter<long> CommitAcknowledged;
-    private static readonly ObservableGauge<long> CreditBalanceBytes;
 
     private readonly KeyValuePair<string, object?>[] _commonTags;
     private readonly IReaderMetricsSource _readerMetricsSource;
-    private long _creditBalanceBytes;
     private long _localBufferMessages;
 
     static ReaderMetricsReporter()
@@ -43,7 +43,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
             unit: "{session}",
             description: "The number of partition sessions currently in the reader session processing lifecycle.");
 
-        CreditBalanceBytes = meter.CreateObservableGauge(
+        meter.CreateObservableGauge(
             "ydb.topic.reader.credit_balance_bytes",
             ObserveCreditBalanceBytes,
             unit: "By",
@@ -130,26 +130,6 @@ internal sealed class ReaderMetricsReporter : IDisposable
 
     internal void ReportReceivedBytes(long bytes) => ReceivedBytes.Add(bytes, _commonTags);
 
-    internal void ReportCreditBalanceBytes(long bytes)
-    {
-        if (!CreditBalanceBytes.Enabled)
-        {
-            return;
-        }
-
-        Interlocked.Add(ref _creditBalanceBytes, bytes);
-    }
-
-    internal void ResetCreditBalanceBytes(long bytes = 0)
-    {
-        if (!CreditBalanceBytes.Enabled)
-        {
-            return;
-        }
-
-        Interlocked.Exchange(ref _creditBalanceBytes, bytes);
-    }
-
     internal void ReportSessionError(StatusCode statusCode, bool retry = true) =>
         TopicMetricsUtils.ReportSessionError(SessionErrors, _commonTags, statusCode, retry);
 
@@ -210,7 +190,7 @@ internal sealed class ReaderMetricsReporter : IDisposable
         {
             return Reporters
                 .Select(reporter =>
-                    new Measurement<long>(Interlocked.Read(ref reporter._creditBalanceBytes), reporter._commonTags))
+                    new Measurement<long>(reporter._readerMetricsSource.CreditBalanceBytes, reporter._commonTags))
                 .ToArray();
         }
     }
