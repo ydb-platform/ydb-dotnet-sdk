@@ -20,12 +20,4 @@ public class YdbConnectionTests(YdbFactoryFixture fixture) : ConnectionTestBase<
     {
         return base.DisposeAsync_raises_Disposed();
     }
-
-#pragma warning disable xUnit1004
-    [Fact(Skip = "TODO Supported this field.")]
-#pragma warning restore xUnit1004
-    public override void ServerVersion_returns_value()
-    {
-        base.ServerVersion_returns_value();
-    }
 }
