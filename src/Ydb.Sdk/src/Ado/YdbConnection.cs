@@ -1,6 +1,7 @@
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.Extensions.Logging;
 using Ydb.Sdk.Ado.BulkUpsert;
 using Ydb.Sdk.Ado.RetryPolicy;
 using Ydb.Sdk.Ado.Session;
@@ -158,6 +159,8 @@ public sealed class YdbConnection : DbConnection
 
     public override void Open() => OpenAsync().GetAwaiter().GetResult();
 
+    internal ILoggerFactory LoggerFactory => ConnectionStringBuilder.LoggerFactory;
+
     internal YdbMetricsReporter MetricsReporter => _sessionSource!.MetricsReporter;
 
     public override async Task OpenAsync(CancellationToken cancellationToken)
@@ -197,33 +200,54 @@ public sealed class YdbConnection : DbConnection
             case ConnectionState.Closed:
                 return;
             case ConnectionState.Broken:
-                ConnectionState = ConnectionState.Closed;
-                _session.Dispose();
+                try
+                {
+                    _session.Dispose();
+                }
+                finally
+                {
+                    SetClosed();
+                }
+
                 return;
             default:
                 try
                 {
                     if (LastReader is { IsClosed: false })
                     {
-                        await LastReader.CloseAsync().ConfigureAwait(false);
+                        await LastReader.CloseFromConnectionAsync().ConfigureAwait(false);
                     }
 
                     if (CurrentTransaction is { Completed: false })
                     {
                         await CurrentTransaction.RollbackAsync().ConfigureAwait(false);
                     }
-
-                    OnStateChange(OpenToClosedEventArgs);
-
-                    ConnectionState = ConnectionState.Closed;
                 }
                 finally
                 {
-                    _session.Dispose();
+                    try
+                    {
+                        _session.Dispose();
+                    }
+                    finally
+                    {
+                        SetClosed();
+                    }
                 }
 
                 break;
         }
+    }
+
+    private void SetClosed()
+    {
+        if (ConnectionState == ConnectionState.Closed)
+        {
+            return;
+        }
+
+        OnStateChange(OpenToClosedEventArgs);
+        ConnectionState = ConnectionState.Closed;
     }
 
     public override string ConnectionString
